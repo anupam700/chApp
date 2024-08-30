@@ -1,36 +1,55 @@
-import express from "express";
-import bodyParser from "body-parser";
-import cors from "cors";
-import dotenv from "dotenv";
-import helmet from "helmet";
-import morgan from "morgan";
-import OpenAI from "openai";
-import openAiRoutes from "./routes/openai.js";
-import authRoutes from "./routes/auth.js";
-
-/* CONFIGURATIONS */
-dotenv.config();
+const express = require("express");
+const cors = require("cors");
+const mongoose = require("mongoose");
+const authRoutes = require("./routes/auth");
+const messageRoutes = require("./routes/messages");
 const app = express();
-app.use(express.json());
-app.use(helmet());
-app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
-app.use(morgan("common"));
-app.use(bodyParser.json({ limit: "30mb", extended: true }));
-app.use(bodyParser.urlencoded({ limit: "30mb", extended: true }));
+const socket = require("socket.io");
+require("dotenv").config();
+
 app.use(cors());
+app.use(express.json());
 
-/* OPEN AI CONFIGURATION */
+mongoose
+  .connect(process.env.MONGO_URL, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => {
+    console.log("DB Connetion Successfull");
+  })
+  .catch((err) => {
+    console.log(err.message);
+  });
 
-export const openai = new OpenAI({
-    apiKey: process.env['OPENAI_API_KEY'],
+app.get("/ping", (_req, res) => {
+  return res.json({ msg: "Ping Successful" });
 });
 
-/* ROUTES */
-app.use("/openai", openAiRoutes);
-app.use("/auth", authRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/messages", messageRoutes);
 
-/* SERVER SETUP */
-const PORT = process.env.PORT || 9000;
-app.listen(PORT, () => {
-  console.log(`Example app listening at http://localhost:${PORT}`);
+const server = app.listen(process.env.PORT, () =>
+  console.log(`Server started on ${process.env.PORT}`)
+);
+const io = socket(server, {
+  cors: {
+    origin: "http://localhost:3000",
+    credentials: true,
+  },
+});
+
+global.onlineUsers = new Map();
+io.on("connection", (socket) => {
+  global.chatSocket = socket;
+  socket.on("add-user", (userId) => {
+    onlineUsers.set(userId, socket.id);
+  });
+
+  socket.on("send-msg", (data) => {
+    const sendUserSocket = onlineUsers.get(data.to);
+    if (sendUserSocket) {
+      socket.to(sendUserSocket).emit("msg-recieve", data.msg);
+    }
+  });
 });

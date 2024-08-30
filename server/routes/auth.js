@@ -1,49 +1,17 @@
-import express from "express";
-import axios from "axios";
+const {
+  login,
+  register,
+  getAllUsers,
+  setAvatar,
+  logOut,
+} = require("../controllers/userController");
 
-const router = express.Router();
+const router = require("express").Router();
 
-router.post("/login", async (req, res) => {
-  try {
-    const { username, password } = req.body;
-    const chatEngineResponse = await axios.get(
-      "https://api.chatengine.io/users/me",
-      {
-        headers: {
-          "Project-ID": process.env.PROJECT_ID,
-          "User-Name": username,
-          "User-Secret": password,
-        },
-      }
-    );
-    console.log("------",chatEngineResponse)
-    res.status(200).json({ response: chatEngineResponse.data });
-  } catch (error) {
-    console.error("error", error);
-    res.status(500).json({ error: error.message });
-  }
-});
+router.post("/login", login);
+router.post("/register", register);
+router.get("/allusers/:id", getAllUsers);
+router.post("/setavatar/:id", setAvatar);
+router.get("/logout/:id", logOut);
 
-router.post("/signup", async (req, res) => {
-  try {
-    const { username, password } = req.body;
-
-    const chatEngineResponse = await axios.post(
-      "https://api.chatengine.io/users/",
-      {
-        username: username,
-        secret: password,
-      },
-      {
-        headers: { "Private-Key": process.env.PRIVATE_KEY },
-      }
-    );
-
-    res.status(200).json({ response: chatEngineResponse.data });
-  } catch (error) {
-    console.error("error-----", error.message);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-export default router;
+module.exports = router;
